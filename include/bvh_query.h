@@ -11,6 +11,7 @@ struct QueryResult {
   int idx;
   // TODO: possibly add barycentric coordinates here too
 
+  QueryResult() : dist(INFINITY), idx(-1) {}
   QueryResult(double dist) : dist(dist), idx(-1) {}
   QueryResult(Vector p, double dist, int idx) : point(p), dist(dist), idx(idx) {}
 };

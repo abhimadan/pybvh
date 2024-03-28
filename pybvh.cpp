@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include <iostream>
 #include <vector>
@@ -10,7 +11,7 @@ namespace py = pybind11;
 
 // This structure owns all the cpu memory it needs, and the binding should make
 // sure that the lifetime of this struct is longer than the geometry arrays used
-// to build it
+// to build it.
 struct PyBVHTree {
   std::vector<pybvh::BVH> nodes;
   std::vector<int> indices;
@@ -198,28 +199,48 @@ PyBVHTree buildBVHEdges(py::buffer V_py, py::buffer E_py) {
   return tree;
 }
 
-py::tuple minDist(py::buffer q_py, const PyBVHTree& tree) {
+std::vector<pybvh::QueryResult> minDist(py::buffer q_py,
+                                        const PyBVHTree& tree) {
   py::buffer_info q_info = q_py.request();
   if (q_info.format != py::format_descriptor<double>::format()) {
     throw std::runtime_error(
         "Incompatible data format: expected a double array");
   }
-  if (q_info.ndim != 1) {
-    throw std::runtime_error("Incompatible dimension: expected a 1d array");
+  if (q_info.ndim != 2) {
+    throw std::runtime_error("Incompatible dimension: expected a 2d array");
   }
-  if (q_info.shape[0] != 3) {
-    throw std::runtime_error("Incompatible dimension: expected 3 entries");
+  if (q_info.shape[1] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 columns");
   }
 
-  auto qptr = static_cast<pybvh::Vector*>(q_info.ptr);
-  pybvh::QueryResult result = pybvh::minDist(*qptr, tree.tree_ptrs);
-  return py::make_tuple(result.dist, result.idx);
+  int num_queries = q_info.shape[0];
+  py::ssize_t qstrides[2] = {q_info.strides[0] / (py::ssize_t)sizeof(double),
+                             q_info.strides[1] / (py::ssize_t)sizeof(double)};
+  auto qdata = static_cast<const double*>(q_info.ptr);
+
+  // TODO: this ends up as a list, can convert to numpy arrays on this side
+  // maybe (or I guess it's easier on the python side since with this structure
+  // we'd need a copy regardless)
+  // I guess we want this as numpy arrays instead?
+  std::vector<pybvh::QueryResult> results(num_queries);
+  for (int i = 0; i < num_queries; i++) {
+    double x = *(qdata + i*qstrides[0] + 0*qstrides[1]);
+    double y = *(qdata + i*qstrides[0] + 1*qstrides[1]);
+    double z = *(qdata + i*qstrides[0] + 2*qstrides[1]);
+    pybvh::Vector q(x, y, z);
+    results[i] = pybvh::minDist(q, tree.tree_ptrs);
+  }
+  return results;
 }
 
 PYBIND11_MODULE(pybvh, m) {
   m.doc() = "A plugin to expose a C++ BVH implementation in Python";
 
   py::class_<PyBVHTree>(m, "BVHTree");
+
+  py::class_<pybvh::QueryResult>(m, "QueryResult")
+    .def_readonly("dist", &pybvh::QueryResult::dist)
+    .def_readonly("idx", &pybvh::QueryResult::idx);
 
   m.def("build_bvh_points", &buildBVHPoints,
         "Builds a BVH over the given point set", py::keep_alive<0, 1>());
@@ -229,5 +250,9 @@ PYBIND11_MODULE(pybvh, m) {
   m.def("build_bvh_edges", &buildBVHEdges,
         "Builds a BVH over the given edge mesh", py::keep_alive<0, 1>(),
         py::keep_alive<0, 2>());
-  m.def("min_dist", &minDist, "Computes the minimum distance to the point set");
+
+  // I think this uses the move policy by default, which should be fine, but I
+  // don't fully understand whether or not we're skipping the additional copy to
+  // a python list. I guess making the vector opaque would solve this though
+  m.def("min_dist", &minDist, "Computes the minimum distance to the mesh");
 }
