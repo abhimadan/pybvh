@@ -1,5 +1,9 @@
 #pragma once
 
+#include <functional>
+#include <vector>
+#include <queue>
+
 #include "bvh.h"
 #include "vector.h"
 
@@ -7,7 +11,7 @@ namespace pybvh {
 
 struct QueryResult {
   Vector point;
-  double dist;
+  double dist; // squared distance, actually
   int idx;
   // TODO: possibly add barycentric coordinates here too
 
@@ -16,10 +20,17 @@ struct QueryResult {
   QueryResult(Vector p, double dist, int idx) : point(p), dist(dist), idx(idx) {}
 };
 
-// what does the query interface look like? do we just support one point and let
-// pybind11 vectorize it automatically? what if we want a parallelized loop?
-// just do one query for now and go from there
+using QueryGreater = std::function<bool(const QueryResult&, const QueryResult&)>;
+
+using KNNQueryResult =
+    std::priority_queue<QueryResult, std::vector<QueryResult>, QueryGreater>;
+void pushOntoPQueue(KNNQueryResult& results, int k, double max_radius,
+                    const QueryResult& result);
+
 QueryResult minDist(const Vector& q, const BVHTree& tree,
                     double max_radius = INFINITY);
+
+KNNQueryResult knn(const Vector& q, int k, const BVHTree& tree,
+                   double max_radius = INFINITY);
 
 } // namespace pybvh

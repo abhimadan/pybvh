@@ -7,7 +7,7 @@ namespace pybvh {
 Vector closestPointOnEdge(const Vector& v0, const Vector& v1, const Vector& p,
                           double& t) {
   Vector dir = v1 - v0;
-  t = fmin(fmax(dir.dot(p - v0)/dir.squaredNorm(), 0.0f), 1.0f);
+  t = fmin(fmax(dir.dot(p - v0)/dir.squaredNorm(), 0.0), 1.0);
   return v0 + t * dir;
 }
 
@@ -34,24 +34,24 @@ Vector closestPointOnTriangle(const Vector& v0, const Vector& v1,
   double det = fabs(fma(a, c, -bb) + fma(-b, b, bb)) + 1e-10;
 
   if (s + t <= det) {
-    if (s < 0.f) {
-      if (t < 0.f) {
+    if (s < 0.0) {
+      if (t < 0.0) {
         // Region 4: both coordinates of the global min are negative
-        if (d < 0.f) {
+        if (d < 0.0) {
           // On edge t=0
-          t = 0.f;
+          t = 0.0;
           if (-d >= a) {
-            s = 1.f;
+            s = 1.0;
           } else {
             s = -d/a;
           }
         } else {
           // On edge s=0
-          s = 0.f;
-          if (e >= 0.f) {
-            t = 0.f;
+          s = 0.0;
+          if (e >= 0.0) {
+            t = 0.0;
           } else if (-e >= c) {
-            t = 1.f;
+            t = 1.0;
           } else {
             t = -e/c;
           }
@@ -59,23 +59,23 @@ Vector closestPointOnTriangle(const Vector& v0, const Vector& v1,
       } else {
         // Region 3: s coordinate is negative and the sum is < 1
         // On edge s=0
-        s = 0.f;
-        if (e >= 0.f) {
-          t = 0.f;
+        s = 0.0;
+        if (e >= 0.0) {
+          t = 0.0;
         } else if (-e >= c) {
-          t = 1.f;
+          t = 1.0;
         } else {
           t = -e/c;
         }
       }
-    } else if (t < 0.f) {
+    } else if (t < 0.0) {
       // Region 5: t coordinate is negative and the sum is < 1
       // On edge t=0
-      t = 0.f;
-      if (d >= 0.f) {
-        s = 0.f;
+      t = 0.0;
+      if (d >= 0.0) {
+        s = 0.0;
       } else if (-d >= a) {
-        s = 1.f;
+        s = 1.0;
       } else {
         s = -d/a;
       }
@@ -85,52 +85,52 @@ Vector closestPointOnTriangle(const Vector& v0, const Vector& v1,
       t /= det;
     }
   } else {
-    if (s < 0.f) {
+    if (s < 0.0) {
       // Region 2: s coordinate is negative and sum is > 1
       double tmp0 = b+d;
       double tmp1 = c+e;
       if (tmp1 > tmp0) {
         // Edge s+t=1
         double numer = tmp1 - tmp0;
-        double denom = a - 2.f*b + c;
+        double denom = a - 2*b + c;
         if (numer >= denom) {
-          s = 1.f;
+          s = 1.0;
         } else {
           s = numer/denom;
         }
-        t = 1.f-s;
+        t = 1.0-s;
       } else {
         // Edge s=0
-        s = 0.f;
-        if (tmp1 <= 0.f) {
-          t = 1.f;
-        } else if (e >= 0.f) {
-          t = 0.f;
+        s = 0.0;
+        if (tmp1 <= 0.0) {
+          t = 1.0;
+        } else if (e >= 0.0) {
+          t = 0.0;
         } else {
           t = -e / c;
         }
       }
-    } else if (t < 0.f) {
+    } else if (t < 0.0) {
       // Region 6: t coordinate is negative and sum is > 1
       double tmp0 = b+e;
       double tmp1 = a+d;
       if (tmp1 > tmp0) {
         // Edge s+t=1
         double numer = tmp1 - tmp0;
-        double denom = a - 2.f*b + c;
+        double denom = a - 2*b + c;
         if (numer >= denom) {
-          t = 1.f;
+          t = 1.0;
         } else {
           t = numer/denom;
         }
-        s = 1.f-t;
+        s = 1.0-t;
       } else {
         // Edge t=0
-        t = 0.f;
-        if (tmp1 <= 0.f) {
-          s = 1.f;
-        } else if (d >= 0.f) {
-          s = 0.f;
+        t = 0.0;
+        if (tmp1 <= 0.0) {
+          s = 1.0;
+        } else if (d >= 0.0) {
+          s = 0.0;
         } else {
           s = -d/a;
         }
@@ -139,17 +139,17 @@ Vector closestPointOnTriangle(const Vector& v0, const Vector& v1,
       // Region 1: both coordinates are positive and sum > 1
       // On edge s+t=1
       double numer = (c+e) - (b+d);
-      if (numer <= 0.f) {
-        s = 0.f;
+      if (numer <= 0.0) {
+        s = 0.0;
       } else {
-        double denom = a - 2.f*b + c;
+        double denom = a - 2*b + c;
         if (numer >= denom) {
-          s = 1.f;
+          s = 1.0;
         } else {
           s = numer/denom;
         }
       }
-      t = 1.f-s;
+      t = 1.0-s;
     }
   }
 
