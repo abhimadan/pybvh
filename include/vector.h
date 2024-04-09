@@ -18,28 +18,28 @@ struct Vector {
     this->z() = z;
   }
 
-  double x() const { return vals[0]; }
-  double& x() { return vals[0]; }
-  double y() const { return vals[1]; }
-  double& y() { return vals[1]; }
-  double z() const { return vals[2]; }
-  double& z() { return vals[2]; }
+  inline double x() const { return vals[0]; }
+  inline double& x() { return vals[0]; }
+  inline double y() const { return vals[1]; }
+  inline double& y() { return vals[1]; }
+  inline double z() const { return vals[2]; }
+  inline double& z() { return vals[2]; }
 
-  double& operator()(int i) {
+  inline double& operator()(int i) {
     assert(i >= 0 && i < 3);
     return vals[i];
   }
 
-  double operator()(int i) const {
+  inline double operator()(int i) const {
     assert(i >= 0 && i < 3);
     return vals[i];
   }
 
-  double dot(const Vector& b) const {
+  inline double dot(const Vector& b) const {
     return x()*b.x() + y()*b.y() + z()*b.z();
   }
 
-  double squaredNorm() const {
+  inline double squaredNorm() const {
     return dot(*this);
   }
 

@@ -142,4 +142,61 @@ KNNQueryResult knn(const Vector& q, int k, const BVHTree& tree, double max_radiu
   return results;
 }
 
+void radiusSearchStack(int node_idx, const Vector& q, const double radius,
+                       const BVHTree& tree, RadiusResult& results) {
+  if (node_idx < 0 || node_idx >= tree.num_nodes) {
+    return;
+  }
+
+  const BVH* bvh = &tree.nodes[node_idx];
+
+  if (bvh->isLeaf()) {
+    Vector p;
+    if (tree.Fptr != nullptr) {
+      Vector v0 = bvh->getLeafCorner(0, tree.indices, tree.Vptr, tree.Fptr);
+      Vector v1 = bvh->getLeafCorner(1, tree.indices, tree.Vptr, tree.Fptr);
+      Vector v2 = bvh->getLeafCorner(2, tree.indices, tree.Vptr, tree.Fptr);
+      double s, t;
+      p = closestPointOnTriangle(v0, v1, v2, q, s, t);
+    } else if (tree.Eptr != nullptr) {
+      Vector v0 = bvh->getLeafEndpoint(0, tree.indices, tree.Vptr, tree.Eptr);
+      Vector v1 = bvh->getLeafEndpoint(1, tree.indices, tree.Vptr, tree.Eptr);
+      double t;
+      p = closestPointOnEdge(v0, v1, q, t);
+    } else {
+      p = bvh->getLeafVertex(tree.indices, tree.Vptr);
+    }
+    QueryResult leaf_result = QueryResult(p, (q-p).squaredNorm(), bvh->leafIdx(tree.indices));
+    if (leaf_result.dist <= radius) {
+      results.push_back(leaf_result);
+    }
+  }
+
+  double box_dist = bvh->bounds.squaredDist(q);
+  if (box_dist > radius) {
+    return;
+  }
+
+  const BVH* left_node =
+      bvh->left_idx >= tree.num_nodes ? nullptr : &tree.nodes[bvh->left_idx];
+  const BVH* right_node =
+      bvh->right_idx >= tree.num_nodes ? nullptr : &tree.nodes[bvh->right_idx];
+  double left_box_dist = left_node == nullptr ? 0 : left_node->bounds.squaredDist(q);
+  double right_box_dist = right_node == nullptr ? 0 : right_node->bounds.squaredDist(q);
+
+  if (left_box_dist < right_box_dist) {
+    radiusSearchStack(bvh->left_idx, q, radius, tree, results);
+    radiusSearchStack(bvh->right_idx, q, radius, tree, results);
+  } else {
+    radiusSearchStack(bvh->left_idx, q, radius, tree, results);
+    radiusSearchStack(bvh->right_idx, q, radius, tree, results);
+  }
+}
+
+RadiusResult radiusSearch(const Vector& q, double radius, const BVHTree& tree) {
+  RadiusResult results;
+  radiusSearchStack(0, q, radius, tree, results);
+  return results;
+}
+
 } // namespace pybvh

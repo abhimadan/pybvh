@@ -313,13 +313,73 @@ std::vector<std::vector<pybvh::QueryResult>> knn(py::buffer q_py, int k,
   return results;
 }
 
+std::vector<pybvh::RadiusResult> radiusSearch(
+    py::buffer q_py, double radius, const PyBVHTree& tree) {
+  py::buffer_info q_info = q_py.request();
+  if (q_info.format != py::format_descriptor<double>::format()) {
+    throw std::runtime_error(
+        "Incompatible data format: expected a double array");
+  }
+  if (q_info.ndim != 2) {
+    throw std::runtime_error("Incompatible dimension: expected a 2d array");
+  }
+  if (q_info.shape[1] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 columns");
+  }
+
+  int num_queries = q_info.shape[0];
+  py::ssize_t qstrides[2] = {q_info.strides[0] / (py::ssize_t)sizeof(double),
+                             q_info.strides[1] / (py::ssize_t)sizeof(double)};
+  auto qdata = static_cast<const double*>(q_info.ptr);
+
+  // TODO: this ends up as a list, can convert to numpy arrays on this side
+  // maybe (or I guess it's easier on the python side since with this structure
+  // we'd need a copy regardless)
+  // I guess we want this as numpy arrays instead?
+  // This is still a bit slower than the libigl version (probably because we're
+  // converting column-major to row-major and not using Eigen), but it has
+  // reasonable performance
+  int num_threads = 8;
+  int batch_size = num_queries / num_threads + 1;
+  std::vector<pybvh::RadiusResult> results(num_queries);
+  auto eval_query_batch = [&](int thread_idx) {
+    int start = batch_size * thread_idx;
+    int end = std::min(batch_size * (thread_idx + 1), num_queries);
+    for (int i = start; i < end; i++) {
+      double x = *(qdata + i * qstrides[0] + 0 * qstrides[1]);
+      double y = *(qdata + i * qstrides[0] + 1 * qstrides[1]);
+      double z = *(qdata + i * qstrides[0] + 2 * qstrides[1]);
+      pybvh::Vector q(x, y, z);
+      results[i] = pybvh::radiusSearch(q, radius, tree.tree_ptrs);
+    }
+  };
+
+  std::vector<std::thread> query_threads;
+  for (int thread_idx = 0; thread_idx < num_threads; thread_idx++) {
+    query_threads.emplace_back(eval_query_batch, thread_idx);
+  }
+  for (auto& t : query_threads) {
+    t.join();
+  }
+
+  return results;
+}
+
 PYBIND11_MODULE(pybvh, m) {
   m.doc() = "A plugin to expose a C++ BVH implementation in Python";
 
   py::class_<PyBVHTree>(m, "BVHTree");
 
+  py::class_<pybvh::Vector>(m, "Vector", py::buffer_protocol())
+      .def_buffer([](pybvh::Vector& v) -> py::buffer_info {
+        return py::buffer_info(v.vals, sizeof(double),
+                               py::format_descriptor<double>::format(), 1, {3},
+                               {sizeof(double)});
+      });
+
   py::class_<pybvh::QueryResult>(m, "QueryResult")
     .def_readonly("dist", &pybvh::QueryResult::dist)
+    .def_readonly("point", &pybvh::QueryResult::point)
     .def_readonly("idx", &pybvh::QueryResult::idx);
 
   m.def("build_bvh_points", &buildBVHPoints,
@@ -334,7 +394,13 @@ PYBIND11_MODULE(pybvh, m) {
   // I think this uses the move policy by default, which should be fine, but I
   // don't fully understand whether or not we're skipping the additional copy to
   // a python list. I guess making the vector opaque would solve this though
-  m.def("min_dist", &minDist, "Computes the minimum distance to the mesh");
+  m.def("min_dist", &minDist,
+        "Computes the minimum distance of each query point to the mesh");
 
-  m.def("knn", &knn, "Computes the k nearest neighbours to the mesh");
+  m.def("knn", &knn,
+        "Computes the k nearest neighbours of each query point on the mesh");
+
+  m.def("radius_search", &radiusSearch,
+        "Computes the points on the mesh within the specified (squared) radius "
+        "of the query points");
 }

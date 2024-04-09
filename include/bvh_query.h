@@ -20,17 +20,21 @@ struct QueryResult {
   QueryResult(Vector p, double dist, int idx) : point(p), dist(dist), idx(idx) {}
 };
 
-using QueryGreater = std::function<bool(const QueryResult&, const QueryResult&)>;
+using QueryComp = std::function<bool(const QueryResult&, const QueryResult&)>;
 
 using KNNQueryResult =
-    std::priority_queue<QueryResult, std::vector<QueryResult>, QueryGreater>;
+    std::priority_queue<QueryResult, std::vector<QueryResult>, QueryComp>;
 void pushOntoPQueue(KNNQueryResult& results, int k, double max_radius,
                     const QueryResult& result);
+
+using RadiusResult = std::vector<QueryResult>;
 
 QueryResult minDist(const Vector& q, const BVHTree& tree,
                     double max_radius = INFINITY);
 
 KNNQueryResult knn(const Vector& q, int k, const BVHTree& tree,
                    double max_radius = INFINITY);
+
+RadiusResult radiusSearch(const Vector& q, double radius, const BVHTree& tree);
 
 } // namespace pybvh
