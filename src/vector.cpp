@@ -12,6 +12,10 @@ Vector Vector::normalized() const {
   return (*this)/l;
 }
 
+Vector Vector::reciprocal() const {
+  return Vector(1.0/vals[0], 1.0/vals[1], 1.0/vals[2]);
+}
+
 Vector operator+(const Vector& a, const Vector& b) {
   Vector c;
   c.x() = a.x() + b.x();
@@ -52,6 +56,14 @@ Vector& operator*=(Vector& a, double k) {
 
 Vector operator/(const Vector& a, double k) {
   return (1.0/k)*a;
+}
+
+Vector operator/(double k, const Vector& a) {
+  return k*a.reciprocal();
+}
+
+Vector operator/(const Vector& a, const Vector& b) {
+  return a*b.reciprocal();
 }
 
 Vector& operator/=(Vector& a, double k) {

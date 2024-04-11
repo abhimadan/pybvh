@@ -44,6 +44,16 @@ struct Box {
     return (closestPoint(p) - p).squaredNorm();
   }
 
+  bool rayIntersection(const Vector& origin, const Vector& direction,
+                       double& t) const {
+    Vector slab_lower = (lower - origin) / direction;
+    Vector slab_upper = (upper - origin) / direction;
+    double t_near = slab_lower.min(slab_upper).maxCoeff();
+    double t_far = slab_lower.max(slab_upper).minCoeff();
+    t = t_near;
+    return t_near <= t_far;
+  }
+
   double maxDist(const Vector& p) const {
     double cur_max = 0;
     Vector corner = lower;

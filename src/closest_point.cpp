@@ -1,7 +1,5 @@
 #include "closest_point.h"
 
-#include "bvh.h"
-
 namespace pybvh {
 
 Vector closestPointOnEdge(const Vector& v0, const Vector& v1, const Vector& p,

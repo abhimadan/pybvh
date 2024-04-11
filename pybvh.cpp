@@ -201,7 +201,7 @@ PyBVHTree buildBVHEdges(py::buffer V_py, py::buffer E_py) {
   return tree;
 }
 
-std::vector<pybvh::QueryResult> minDist(py::buffer q_py,
+std::vector<pybvh::DistResult> minDist(py::buffer q_py,
                                         const PyBVHTree& tree) {
   py::buffer_info q_info = q_py.request();
   if (q_info.format != py::format_descriptor<double>::format()) {
@@ -229,7 +229,7 @@ std::vector<pybvh::QueryResult> minDist(py::buffer q_py,
   // reasonable performance
   int num_threads = 8;
   int batch_size = num_queries / num_threads + 1;
-  std::vector<pybvh::QueryResult> results(num_queries);
+  std::vector<pybvh::DistResult> results(num_queries);
   auto eval_query_batch = [&](int thread_idx) {
     int start = batch_size * thread_idx;
     int end = std::min(batch_size * (thread_idx + 1), num_queries);
@@ -253,7 +253,7 @@ std::vector<pybvh::QueryResult> minDist(py::buffer q_py,
   return results;
 }
 
-std::vector<std::vector<pybvh::QueryResult>> knn(py::buffer q_py, int k,
+std::vector<std::vector<pybvh::DistResult>> knn(py::buffer q_py, int k,
                                                  const PyBVHTree& tree) {
   py::buffer_info q_info = q_py.request();
   if (q_info.format != py::format_descriptor<double>::format()) {
@@ -281,8 +281,8 @@ std::vector<std::vector<pybvh::QueryResult>> knn(py::buffer q_py, int k,
   // reasonable performance
   int num_threads = 8;
   int batch_size = num_queries / num_threads + 1;
-  std::vector<std::vector<pybvh::QueryResult>> results(num_queries);
-  for (std::vector<pybvh::QueryResult>& r : results) {
+  std::vector<std::vector<pybvh::DistResult>> results(num_queries);
+  for (std::vector<pybvh::DistResult>& r : results) {
     r.resize(k);
   }
   auto eval_query_batch = [&](int thread_idx) {
@@ -293,9 +293,9 @@ std::vector<std::vector<pybvh::QueryResult>> knn(py::buffer q_py, int k,
       double y = *(qdata + i * qstrides[0] + 1 * qstrides[1]);
       double z = *(qdata + i * qstrides[0] + 2 * qstrides[1]);
       pybvh::Vector q(x, y, z);
-      pybvh::KNNQueryResult result = pybvh::knn(q, k, tree.tree_ptrs);
+      pybvh::KNNResult result = pybvh::knn(q, k, tree.tree_ptrs);
       for (int j = 0; j < k && !result.empty(); j++) {
-        pybvh::QueryResult r = result.top();
+        pybvh::DistResult r = result.top();
         results[i][j] = r;
         result.pop();
       }
@@ -365,6 +365,149 @@ std::vector<pybvh::RadiusResult> radiusSearch(
   return results;
 }
 
+std::vector<pybvh::HitResult> closestRayIntersection(py::buffer o_py,
+                                                     py::buffer d_py,
+                                                     const PyBVHTree& tree) {
+  py::buffer_info o_info = o_py.request();
+  if (o_info.format != py::format_descriptor<double>::format()) {
+    throw std::runtime_error(
+        "Incompatible data format: expected a double array");
+  }
+  if (o_info.ndim != 1) {
+    throw std::runtime_error("Incompatible dimension: expected a 1d array");
+  }
+  if (o_info.shape[0] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 entries");
+  }
+
+  py::buffer_info d_info = d_py.request();
+  if (d_info.format != py::format_descriptor<double>::format()) {
+    throw std::runtime_error(
+        "Incompatible data format: expected a double array");
+  }
+  if (d_info.ndim != 2) {
+    throw std::runtime_error("Incompatible dimension: expected a 2d array");
+  }
+  if (d_info.shape[1] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 entries");
+  }
+
+  auto odata = static_cast<const double*>(o_info.ptr);
+  py::ssize_t ostride = o_info.strides[0] / (py::ssize_t)sizeof(double);
+  pybvh::Vector origin(*odata, *(odata + ostride), *(odata + 2 * ostride));
+
+  int num_queries = d_info.shape[0];
+  py::ssize_t dstrides[2] = {d_info.strides[0] / (py::ssize_t)sizeof(double),
+                             d_info.strides[1] / (py::ssize_t)sizeof(double)};
+  auto ddata = static_cast<const double*>(d_info.ptr);
+
+  int num_threads = 8;
+  int batch_size = num_queries / num_threads + 1;
+  std::vector<pybvh::HitResult> results(num_queries);
+  auto eval_query_batch = [&](int thread_idx) {
+    int start = batch_size * thread_idx;
+    int end = std::min(batch_size * (thread_idx + 1), num_queries);
+    for (int i = start; i < end; i++) {
+      double x = *(ddata + i * dstrides[0] + 0 * dstrides[1]);
+      double y = *(ddata + i * dstrides[0] + 1 * dstrides[1]);
+      double z = *(ddata + i * dstrides[0] + 2 * dstrides[1]);
+      pybvh::Vector direction(x, y, z);
+      results[i] =
+          pybvh::closestRayIntersection(origin, direction, tree.tree_ptrs);
+    }
+  };
+
+  std::vector<std::thread> query_threads;
+  for (int thread_idx = 0; thread_idx < num_threads; thread_idx++) {
+    query_threads.emplace_back(eval_query_batch, thread_idx);
+  }
+  for (auto& t : query_threads) {
+    t.join();
+  }
+
+  return results;
+}
+
+std::vector<std::vector<pybvh::HitResult>> allRayIntersections(
+    py::buffer o_py, py::buffer d_py, const PyBVHTree& tree) {
+  py::buffer_info o_info = o_py.request();
+  if (o_info.format != py::format_descriptor<double>::format()) {
+    throw std::runtime_error(
+        "Incompatible data format: expected a double array");
+  }
+  if (o_info.ndim != 1) {
+    throw std::runtime_error("Incompatible dimension: expected a 1d array");
+  }
+  if (o_info.shape[0] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 entries");
+  }
+
+  py::buffer_info d_info = d_py.request();
+  if (d_info.format != py::format_descriptor<double>::format()) {
+    throw std::runtime_error(
+        "Incompatible data format: expected a double array");
+  }
+  if (d_info.ndim != 2) {
+    throw std::runtime_error("Incompatible dimension: expected a 2d array");
+  }
+  if (d_info.shape[1] != 3) {
+    throw std::runtime_error("Incompatible dimension: expected 3 entries");
+  }
+
+  auto odata = static_cast<const double*>(o_info.ptr);
+  py::ssize_t ostride = o_info.strides[0] / (py::ssize_t)sizeof(double);
+  pybvh::Vector origin(*odata, *(odata + ostride), *(odata + 2 * ostride));
+
+  int num_queries = d_info.shape[0];
+  py::ssize_t dstrides[2] = {d_info.strides[0] / (py::ssize_t)sizeof(double),
+                             d_info.strides[1] / (py::ssize_t)sizeof(double)};
+  auto ddata = static_cast<const double*>(d_info.ptr);
+
+  int num_threads = 8;
+  int batch_size = num_queries / num_threads + 1;
+  std::vector<std::vector<pybvh::HitResult>> direct_results(num_queries);
+  std::vector<size_t> thread_max_hits(num_threads, 0);
+  auto eval_query_batch = [&](int thread_idx) {
+    int start = batch_size * thread_idx;
+    int end = std::min(batch_size * (thread_idx + 1), num_queries);
+    for (int i = start; i < end; i++) {
+      double x = *(ddata + i * dstrides[0] + 0 * dstrides[1]);
+      double y = *(ddata + i * dstrides[0] + 1 * dstrides[1]);
+      double z = *(ddata + i * dstrides[0] + 2 * dstrides[1]);
+      pybvh::Vector direction(x, y, z);
+      direct_results[i] =
+          pybvh::allRayIntersections(origin, direction, tree.tree_ptrs);
+      thread_max_hits[thread_idx] =
+          std::max(thread_max_hits[thread_idx], direct_results[i].size());
+    }
+  };
+
+  std::vector<std::thread> query_threads;
+  for (int thread_idx = 0; thread_idx < num_threads; thread_idx++) {
+    query_threads.emplace_back(eval_query_batch, thread_idx);
+  }
+  for (auto& t : query_threads) {
+    t.join();
+  }
+
+  // Now transpose the results so we essentially get a stack of "images" per hit
+  size_t max_hits =
+      *std::max_element(thread_max_hits.begin(), thread_max_hits.end());
+  std::vector<std::vector<pybvh::HitResult>> results(max_hits);
+  for (auto& result_image : results) {
+    result_image.resize(num_queries);
+  }
+  for (int i = 0; i < num_queries; i++) {
+    const std::vector<pybvh::HitResult>& pixel_result = direct_results[i];
+    int num_hits = pixel_result.size();
+    for (int j = 0; j < num_hits; j++) {
+      results[j][i] = pixel_result[j];
+    }
+  }
+
+  return results;
+}
+
 PYBIND11_MODULE(pybvh, m) {
   m.doc() = "A plugin to expose a C++ BVH implementation in Python";
 
@@ -377,10 +520,18 @@ PYBIND11_MODULE(pybvh, m) {
                                {sizeof(double)});
       });
 
-  py::class_<pybvh::QueryResult>(m, "QueryResult")
-    .def_readonly("dist", &pybvh::QueryResult::dist)
-    .def_readonly("point", &pybvh::QueryResult::point)
-    .def_readonly("idx", &pybvh::QueryResult::idx);
+  py::class_<pybvh::DistResult>(m, "DistResult")
+    .def_readonly("point", &pybvh::DistResult::point)
+    .def_readonly("dist", &pybvh::DistResult::dist)
+    .def_readonly("idx", &pybvh::DistResult::idx);
+
+  py::class_<pybvh::HitResult>(m, "HitResult")
+    .def_readonly("point", &pybvh::HitResult::point)
+    .def_readonly("t", &pybvh::HitResult::t)
+    .def_readonly("u", &pybvh::HitResult::u)
+    .def_readonly("v", &pybvh::HitResult::v)
+    .def_readonly("idx", &pybvh::HitResult::idx)
+    .def("is_hit", &pybvh::HitResult::isHit);
 
   m.def("build_bvh_points", &buildBVHPoints,
         "Builds a BVH over the given point set", py::keep_alive<0, 1>());
@@ -403,4 +554,12 @@ PYBIND11_MODULE(pybvh, m) {
   m.def("radius_search", &radiusSearch,
         "Computes the points on the mesh within the specified (squared) radius "
         "of the query points");
+
+  m.def(
+      "closest_ray_intersection", &closestRayIntersection,
+      "Computes the ray intersections of each given ray with a common origin");
+
+  m.def(
+      "all_ray_intersections", &allRayIntersections,
+      "Computes all ray intersections of each given ray with a common origin");
 }

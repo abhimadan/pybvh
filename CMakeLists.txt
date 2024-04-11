@@ -12,7 +12,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
-add_library(pybvh_lib STATIC src/bvh.cpp src/bvh_query.cpp src/closest_point.cpp src/vector.cpp)
+add_library(pybvh_lib STATIC src/bvh.cpp src/bvh_query.cpp src/closest_point.cpp src/vector.cpp src/ray_intersection.cpp)
 target_include_directories(pybvh_lib PUBLIC include)
 
 pybind11_add_module(pybvh pybvh.cpp)

@@ -20,6 +20,8 @@ struct BVH {
   double num_leaves;
 
   bool isLeaf() const { return end - begin == 1; }
+  bool hasLeftChild() const { return left_idx >= 0; }
+  bool hasRightChild() const { return right_idx >= 0; }
 
   int leafIdx(const int* indices) const {
     assert(isLeaf());

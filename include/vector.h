@@ -50,6 +50,8 @@ struct Vector {
   void normalize();
   Vector normalized() const;
 
+  Vector reciprocal() const;
+
   Vector min(const Vector& b) const {
     return Vector(fmin(x(), b.x()), fmin(y(), b.y()), fmin(z(), b.z()));
   }
@@ -79,6 +81,22 @@ struct Vector {
     return maxCoeff(&idx);
   }
 
+  double minCoeff(int* idx) const {
+    *idx = 0;
+    double cur_min = vals[0];
+    for (int i = 1; i < 3; i++) {
+      if (vals[i] < cur_min) {
+        cur_min = vals[i];
+        *idx = i;
+      }
+    }
+    return cur_min;
+  }
+  double minCoeff() const {
+    int idx;
+    return minCoeff(&idx);
+  }
+
   double sum() const {
     return x()+y()+z();
   }
@@ -96,6 +114,8 @@ Vector operator*(const Vector& a, double k);
 Vector operator*(const Vector& a, const Vector& b);
 Vector& operator*=(Vector& a, double k);
 Vector operator/(const Vector& a, double k);
+Vector operator/(double k, const Vector& a);
+Vector operator/(const Vector& a, const Vector& b);
 Vector& operator/=(Vector& a, double k);
 Vector operator-(const Vector& a, const Vector& b);
 Vector& operator-=(Vector& a, const Vector& b);
