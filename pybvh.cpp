@@ -523,6 +523,8 @@ PYBIND11_MODULE(pybvh, m) {
   py::class_<pybvh::DistResult>(m, "DistResult")
     .def_readonly("point", &pybvh::DistResult::point)
     .def_readonly("dist", &pybvh::DistResult::dist)
+    .def_readonly("u", &pybvh::DistResult::u)
+    .def_readonly("v", &pybvh::DistResult::v)
     .def_readonly("idx", &pybvh::DistResult::idx);
 
   py::class_<pybvh::HitResult>(m, "HitResult")

@@ -18,21 +18,22 @@ DistResult minDistStack(int node_idx, const Vector& q, const BVHTree& tree,
 
   if (bvh->isLeaf()) {
     Vector p;
+    double u = -1;
+    double v = -1;
     if (tree.Fptr != nullptr) {
       Vector v0 = bvh->getLeafCorner(0, tree.indices, tree.Vptr, tree.Fptr);
       Vector v1 = bvh->getLeafCorner(1, tree.indices, tree.Vptr, tree.Fptr);
       Vector v2 = bvh->getLeafCorner(2, tree.indices, tree.Vptr, tree.Fptr);
-      double s, t;
-      p = closestPointOnTriangle(v0, v1, v2, q, s, t);
+      p = closestPointOnTriangle(v0, v1, v2, q, u, v);
     } else if (tree.Eptr != nullptr) {
       Vector v0 = bvh->getLeafEndpoint(0, tree.indices, tree.Vptr, tree.Eptr);
       Vector v1 = bvh->getLeafEndpoint(1, tree.indices, tree.Vptr, tree.Eptr);
-      double t;
-      p = closestPointOnEdge(v0, v1, q, t);
+      p = closestPointOnEdge(v0, v1, q, u);
     } else {
       p = bvh->getLeafVertex(tree.indices, tree.Vptr);
     }
-    DistResult result = DistResult(p, (q-p).squaredNorm(), bvh->leafIdx(tree.indices));
+    DistResult result =
+        DistResult(p, (q - p).squaredNorm(), u, v, bvh->leafIdx(tree.indices));
     return result.dist < max_radius ? result : DistResult(max_radius);
   }
 
@@ -94,21 +95,22 @@ void knnStack(int node_idx, const Vector& q, const int k, const BVHTree& tree,
 
   if (bvh->isLeaf()) {
     Vector p;
+    double u = -1;
+    double v = -1;
     if (tree.Fptr != nullptr) {
       Vector v0 = bvh->getLeafCorner(0, tree.indices, tree.Vptr, tree.Fptr);
       Vector v1 = bvh->getLeafCorner(1, tree.indices, tree.Vptr, tree.Fptr);
       Vector v2 = bvh->getLeafCorner(2, tree.indices, tree.Vptr, tree.Fptr);
-      double s, t;
-      p = closestPointOnTriangle(v0, v1, v2, q, s, t);
+      p = closestPointOnTriangle(v0, v1, v2, q, u, v);
     } else if (tree.Eptr != nullptr) {
       Vector v0 = bvh->getLeafEndpoint(0, tree.indices, tree.Vptr, tree.Eptr);
       Vector v1 = bvh->getLeafEndpoint(1, tree.indices, tree.Vptr, tree.Eptr);
-      double t;
-      p = closestPointOnEdge(v0, v1, q, t);
+      p = closestPointOnEdge(v0, v1, q, u);
     } else {
       p = bvh->getLeafVertex(tree.indices, tree.Vptr);
     }
-    DistResult leaf_result = DistResult(p, (q-p).squaredNorm(), bvh->leafIdx(tree.indices));
+    DistResult leaf_result =
+        DistResult(p, (q - p).squaredNorm(), u, v, bvh->leafIdx(tree.indices));
     pushOntoPQueue(results, k, max_radius, leaf_result);
     return;
   }
@@ -154,21 +156,22 @@ void radiusSearchStack(int node_idx, const Vector& q, const double radius,
 
   if (bvh->isLeaf()) {
     Vector p;
+    double u = -1;
+    double v = -1;
     if (tree.Fptr != nullptr) {
       Vector v0 = bvh->getLeafCorner(0, tree.indices, tree.Vptr, tree.Fptr);
       Vector v1 = bvh->getLeafCorner(1, tree.indices, tree.Vptr, tree.Fptr);
       Vector v2 = bvh->getLeafCorner(2, tree.indices, tree.Vptr, tree.Fptr);
-      double s, t;
-      p = closestPointOnTriangle(v0, v1, v2, q, s, t);
+      p = closestPointOnTriangle(v0, v1, v2, q, u, v);
     } else if (tree.Eptr != nullptr) {
       Vector v0 = bvh->getLeafEndpoint(0, tree.indices, tree.Vptr, tree.Eptr);
       Vector v1 = bvh->getLeafEndpoint(1, tree.indices, tree.Vptr, tree.Eptr);
-      double t;
-      p = closestPointOnEdge(v0, v1, q, t);
+      p = closestPointOnEdge(v0, v1, q, u);
     } else {
       p = bvh->getLeafVertex(tree.indices, tree.Vptr);
     }
-    DistResult leaf_result = DistResult(p, (q-p).squaredNorm(), bvh->leafIdx(tree.indices));
+    DistResult leaf_result =
+        DistResult(p, (q - p).squaredNorm(), u, v, bvh->leafIdx(tree.indices));
     if (leaf_result.dist <= radius) {
       results.push_back(leaf_result);
     }

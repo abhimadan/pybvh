@@ -12,13 +12,13 @@ namespace pybvh {
 struct DistResult {
   Vector point;
   double dist; // squared distance, actually
+  double u, v;
   int idx;
-  // TODO: possibly add barycentric coordinates here too
 
-  DistResult() : dist(INFINITY), idx(-1) {}
-  DistResult(double dist) : dist(dist), idx(-1) {}
-  DistResult(const Vector& p, double dist, int idx)
-      : point(p), dist(dist), idx(idx) {}
+  DistResult() : dist(INFINITY), u(-1), v(-1), idx(-1) {}
+  DistResult(double dist) : dist(dist), u(-1), v(-1), idx(-1) {}
+  DistResult(const Vector& p, double dist, double u, double v, int idx)
+      : point(p), dist(dist), u(u), v(v), idx(idx) {}
 };
 
 using DistComp = std::function<bool(const DistResult&, const DistResult&)>;
