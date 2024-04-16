@@ -26,13 +26,13 @@ bool rayTriangleIntersection(const Vector& v0, const Vector& v1,
 
   double u_numerator = d_cross_e2.dot(rhs);
   u = u_numerator*det_inv;
-  if (u < 0 || u > 1) {
+  if (u < -eps || u > 1+eps) {
     return false; // out of triangle
   }
 
   double v_numerator = e1_cross_d.dot(rhs);
   v = v_numerator*det_inv;
-  if (v < 0 || u + v > 1) {
+  if (v < -eps || u + v > 1+eps) {
     return false;
   }
 
