@@ -17,8 +17,9 @@ bool rayTriangleIntersection(const Vector& v0, const Vector& v1,
   double det = d_cross_e2.dot(e1); // (e2 x (-d)) . e1 == (d x e2) . e1
 
   double eps = 1e-8;
-  if (fabs(det) < eps) {
-    return false; // ray parallel to triangle
+  if (fabs(det) < 1e-12) {
+    // ray parallel to triangle or triangle is too skinny to intersect
+    return false;
   }
 
   double det_inv =  1.0/det;
@@ -38,7 +39,7 @@ bool rayTriangleIntersection(const Vector& v0, const Vector& v1,
 
   double t_numerator = normal.dot(rhs);
   t = t_numerator*det_inv;
-  if (t < eps) {
+  if (t < 1e-12) {
     return false;
   }
 

@@ -11,6 +11,8 @@
 
 namespace py = pybind11;
 
+namespace pybvh_bindings {
+
 // This structure owns all the cpu memory it needs, and the binding should make
 // sure that the lifetime of this struct is longer than the geometry arrays used
 // to build it.
@@ -60,6 +62,10 @@ struct PyBVHTree {
     tree_ptrs = pybvh::BVHTree(nodes, indices, Vptr, Fptr, Eptr);
   }
 };
+
+} // namespace pybvh_bindings
+
+using namespace pybvh_bindings;
 
 PyBVHTree buildBVHPoints(py::buffer V_py) {
   // Request buffer info
